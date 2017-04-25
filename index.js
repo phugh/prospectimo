@@ -1,7 +1,6 @@
-/* jshint node: true, esversion:6, laxbreak: true */
 /**
  * prospectimo
- * v0.0.1
+ * v0.0.2
  *
  * Analyse the temporal orientation of a string.
  *
@@ -21,7 +20,8 @@
  * const prospectimo = require('prospectimo');
  * const opts = {
  *  'return': 'orientation', // 'orientation' return string, 'lex' returns object of lexical values
- *  'more': false            // add more information to returned string if return = 'orientation'
+ *  'more': false,           // add more information to returned string if return = 'orientation'
+ *  'encoding': 'binary'     // 'binary' (default), or 'frequency' - type of word encoding to use.
  * }
  * const text = "A big long string of text...";
  * let orientation = prospectimo(text, opts);
@@ -67,19 +67,18 @@
       let match = []
       for (let key in lexicon[cat]) {
         if (!lexicon[cat].hasOwnProperty(key)) continue
-        let word = key
-        if (arr.indexOf(word) > -1) {
+        if (arr.indexOf(key) > -1) {
           let item
           let weight = lexicon[cat][key]
-          let reps = arr.indexesOf(word).length
+          let reps = arr.indexesOf(key).length
           if (reps > 1) {
             let words = []
             for (let i = 0; i < reps; i++) {
-              words.push(word)
+              words.push(key)
             }
             item = [words, weight]
           } else {
-            item = [word, weight]
+            item = [key, weight]
           }
           match.push(item)
         }
@@ -89,8 +88,7 @@
     return matches
   }
 
-  const calcLex = (obj, wc, int) => {
-    let lex
+  const calcLex = (obj, wc, int, enc) => {
     let counts = []
     let weights = []
     for (let key in obj) {
@@ -104,15 +102,21 @@
     }
     let sums = []
     counts.forEach(function (a, b) {
-      let sum = (a / wc) * weights[b]
+      let sum
+      if (enc === 'frequency') {
+        sum = (a / wc) * weights[b]
+      } else {
+        sum = weights[b]
+      }
       sums.push(sum)
     })
+    let lex
     lex = sums.reduce(function (a, b) { return a + b }, 0)
     lex = Number(lex) + Number(int)
     return lex
   }
 
-  const getValues = (arr) => {
+  const getValues = (arr, enc) => {
     // get matches from array
     const matches = getMatches(arr)
 
@@ -121,15 +125,16 @@
 
     // calculate lexical useage
     let lex = {}
-    lex['PAST'] = calcLex(matches['PAST'], wordcount, (-0.649406376419))
-    lex['PRESENT'] = calcLex(matches['PRESENT'], wordcount, 0.236749577324)
-    lex['FUTURE'] = calcLex(matches['FUTURE'], wordcount, (-0.570547567181))
+    lex.PAST = calcLex(matches.PAST, wordcount, (-0.649406376419), enc)
+    lex.PRESENT = calcLex(matches.PRESENT, wordcount, 0.236749577324, enc)
+    lex.FUTURE = calcLex(matches.FUTURE, wordcount, (-0.570547567181), enc)
 
+    // return lexical value
     return lex
   }
 
   const getOrientation = (obj, more) => {
-    const a = [obj['PAST'], obj['PRESENT'], obj['FUTURE']]
+    const a = [obj.PAST, obj.PRESENT, obj.FUTURE]
     const indexOfMaxValue = a.reduce((iMax, x, i, arr) => x > arr[iMax] ? i : iMax, 0)
 
     let ori
@@ -160,23 +165,35 @@
 
   const prospectimo = (str, opts) => {
     // make sure there is input before proceeding
-    if (str == null) throw new Error('Whoops! No input string found!')
+    if (str == null) return null
 
     // default options
     if (opts == null) {
       opts = {
         'return': 'orientation',
-        'more': false
+        'more': false,
+        'encoding': 'binary'
       }
     }
     opts.return = opts.return || 'orientation'
     opts.more = opts.more || false
+    opts.encoding = opts.encoding || 'binary'
 
     // convert our string to tokens
     const tokens = tokenizer(str)
 
+    // if no tokens return null
+    if (tokens == null) {
+      let lex = {
+        'PAST': 0,
+        'PRESENT': 0,
+        'FUTURE': 0
+      }
+      return lex
+    }
+
     // get lex values
-    const lex = getValues(tokens)
+    let lex = getValues(tokens, opts.encoding)
 
     // get orientation
     const orientation = getOrientation(lex, opts.more)
