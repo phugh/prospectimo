@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v0.0.2
+ * v0.0.3
  *
  * Analyse the temporal orientation of a string.
  *
@@ -166,6 +166,9 @@
   const prospectimo = (str, opts) => {
     // make sure there is input before proceeding
     if (str == null) return null
+
+    // trim whitespace and convert to lowercase
+    str = str.toLowerCase().trim()
 
     // default options
     if (opts == null) {
