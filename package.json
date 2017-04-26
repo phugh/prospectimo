@@ -1,6 +1,6 @@
 {
   "name": "prospectimo",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "Analyse the temporal orientation of a string.",
   "main": "index.js",
   "dependencies": {

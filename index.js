@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v0.0.3
+ * v0.1.0
  *
  * Analyse the temporal orientation of a string.
  *
@@ -62,14 +62,17 @@
 
   const getMatches = (arr) => {
     let matches = {}
-    for (let cat in lexicon) {
+    let cat
+    for (cat in lexicon) {
       if (!lexicon.hasOwnProperty(cat)) continue
       let match = []
-      for (let key in lexicon[cat]) {
-        if (!lexicon[cat].hasOwnProperty(key)) continue
+      let key
+      let data = lexicon[cat]
+      for (key in data) {
+        if (!data.hasOwnProperty(key)) continue
         if (arr.indexOf(key) > -1) {
           let item
-          let weight = lexicon[cat][key]
+          let weight = data[key]
           let reps = arr.indexesOf(key).length
           if (reps > 1) {
             let words = []
@@ -91,7 +94,8 @@
   const calcLex = (obj, wc, int, enc) => {
     let counts = []
     let weights = []
-    for (let key in obj) {
+    let key
+    for (key in obj) {
       if (!obj.hasOwnProperty(key)) continue
       if (Array.isArray(obj[key][0])) {
         counts.push(obj[key][0].length)
@@ -100,37 +104,15 @@
       }
       weights.push(obj[key][1])
     }
-    let sums = []
+    let lex = 0
     counts.forEach(function (a, b) {
-      let sum
       if (enc === 'frequency') {
-        sum = (a / wc) * weights[b]
+        lex += (a / wc) * weights[b]
       } else {
-        sum = weights[b]
+        lex += weights[b]
       }
-      sums.push(sum)
     })
-    let lex
-    lex = sums.reduce(function (a, b) { return a + b }, 0)
-    lex = Number(lex) + Number(int)
-    return lex
-  }
-
-  const getValues = (arr, enc) => {
-    // get matches from array
-    const matches = getMatches(arr)
-
-    // get wordcount
-    const wordcount = arr.length
-
-    // calculate lexical useage
-    let lex = {}
-    lex.PAST = calcLex(matches.PAST, wordcount, (-0.649406376419), enc)
-    lex.PRESENT = calcLex(matches.PRESENT, wordcount, 0.236749577324, enc)
-    lex.FUTURE = calcLex(matches.FUTURE, wordcount, (-0.570547567181), enc)
-
-    // return lexical value
-    return lex
+    return lex + int
   }
 
   const getOrientation = (obj, more) => {
@@ -166,10 +148,10 @@
   const prospectimo = (str, opts) => {
     // make sure there is input before proceeding
     if (str == null) return null
-
+    // if str isn't a string, make it into one
+    if (typeof str !== 'string') str = str.toString()
     // trim whitespace and convert to lowercase
     str = str.toLowerCase().trim()
-
     // default options
     if (opts == null) {
       opts = {
@@ -181,10 +163,8 @@
     opts.return = opts.return || 'orientation'
     opts.more = opts.more || false
     opts.encoding = opts.encoding || 'binary'
-
     // convert our string to tokens
     const tokens = tokenizer(str)
-
     // if no tokens return null
     if (tokens == null) {
       let lex = {
@@ -194,13 +174,18 @@
       }
       return lex
     }
-
-    // get lex values
-    let lex = getValues(tokens, opts.encoding)
-
+    // get matches from array
+    const matches = getMatches(tokens)
+    // get wordcount
+    const wordcount = tokens.length
+    // calculate lexical useage
+    let enc = opts.encoding
+    let lex = {}
+    lex.PAST = calcLex(matches.PAST, wordcount, (-0.649406376419), enc)
+    lex.PRESENT = calcLex(matches.PRESENT, wordcount, 0.236749577324, enc)
+    lex.FUTURE = calcLex(matches.FUTURE, wordcount, (-0.570547567181), enc)
     // get orientation
     const orientation = getOrientation(lex, opts.more)
-
     // predict and return
     if (opts.return === 'lex') {
       return lex
