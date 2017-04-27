@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v0.1.0
+ * v0.1.1
  *
  * Analyse the temporal orientation of a string.
  *
@@ -112,7 +112,10 @@
         lex += weights[b]
       }
     })
-    return lex + int
+    // add int
+    lex = lex + int
+    // return final lexical value + intercept
+    return lex
   }
 
   const getOrientation = (obj, more) => {

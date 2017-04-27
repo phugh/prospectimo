@@ -1,10 +1,10 @@
 {
   "name": "prospectimo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Analyse the temporal orientation of a string.",
   "main": "index.js",
   "dependencies": {
-    "happynodetokenizer": "0.0.4"
+    "happynodetokenizer": "^0.0.4"
   },
   "keywords": [
     "psychology",
