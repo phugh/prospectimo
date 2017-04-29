@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v0.1.1
+ * v0.1.2
  *
  * Analyse the temporal orientation of a string.
  *
@@ -105,15 +105,17 @@
       weights.push(obj[key][1])
     }
     let lex = 0
-    counts.forEach(function (a, b) {
+    let i
+    let len = counts.length
+    for (i = 0; i < len; i++) {
       if (enc === 'frequency') {
-        lex += (a / wc) * weights[b]
+        lex += (counts[i] / wc) * weights[i]
       } else {
-        lex += weights[b]
+        lex += weights[i]
       }
-    })
+    }
     // add int
-    lex = lex + int
+    lex += int
     // return final lexical value + intercept
     return lex
   }
@@ -150,7 +152,7 @@
 
   const prospectimo = (str, opts) => {
     // make sure there is input before proceeding
-    if (str == null) return null
+    if (str == null) return { 'PAST': 0, 'PRESENT': 0, 'FUTURE': 0 }
     // if str isn't a string, make it into one
     if (typeof str !== 'string') str = str.toString()
     // trim whitespace and convert to lowercase
@@ -169,14 +171,7 @@
     // convert our string to tokens
     const tokens = tokenizer(str)
     // if no tokens return null
-    if (tokens == null) {
-      let lex = {
-        'PAST': 0,
-        'PRESENT': 0,
-        'FUTURE': 0
-      }
-      return lex
-    }
+    if (tokens == null) return { 'PAST': 0, 'PRESENT': 0, 'FUTURE': 0 }
     // get matches from array
     const matches = getMatches(tokens)
     // get wordcount
