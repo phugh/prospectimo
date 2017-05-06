@@ -21,9 +21,10 @@ Park, G., Schwartz, H.A., Sap, M., Kern, M.L., Weingarten, E., Eichstaedt, J.C.,
 
 ### Lexicon
 Using the prospection lexicon data from http://www.wwbp.org/lexica.html
+
 Used under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported licence
 
 # Licence
 (C) 2017 P. Hughes
-Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported
+
 [Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported](http://creativecommons.org/licenses/by-nc-sa/3.0/)
