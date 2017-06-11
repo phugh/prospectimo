@@ -6,8 +6,10 @@ Analyse the temporal orientation of a string.
 ```Javascript
 const prospectimo = require('prospectimo');
 const opts = {
-  'return': 'orientation', // 'orientation' return string, 'lex' returns object of lexical values
-  'more': false            // add more information to returned string if return = 'orientation'
+  'return': 'lex', // 'orientation' return string, 'lex' (default) returns object of lexical values
+  "threshold": -0.2,
+  "bigrams": true,
+  "trigrams": true
 }
 const text = "A big long string of text...";
 let orientation = prospectimo(text, opts);

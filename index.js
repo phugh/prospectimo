@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v0.1.3
+ * v0.2.0
  *
  * Analyse the temporal orientation of a string.
  *
@@ -19,12 +19,13 @@
  * Usage example:
  * const prospectimo = require('prospectimo');
  * const opts = {
- *  'return': 'orientation', // 'orientation' return string, 'lex' returns object of lexical values
- *  'more': false,           // add more information to returned string if return = 'orientation'
- *  'encoding': 'binary'     // 'binary' (default), or 'frequency' - type of word encoding to use.
+ *  'return': 'lex',         // 'orientation' returns a string, 'lex' (default) returns object of lexical values
+ *  'encoding': 'binary',    // 'binary' (default), or 'frequency' - type of word encoding to use.
+ *  'bigrams': true,         // compare against bigrams in the lexicon?
+ *  'trigrams': true,        // compare against trigrams in the lexicon?
  * }
  * const text = "A big long string of text...";
- * let orientation = prospectimo(text, opts);
+ * const orientation = prospectimo(text, opts);
  * console.log(orientation)
  *
  * @param {string} str  input string
@@ -37,15 +38,16 @@
   const root = this
   const previous = root.prospectimo
 
-  const hasRequire = typeof require !== 'undefined'
-
   let tokenizer = root.tokenizer
   let lexicon = root.lexicon
+  let natural = root.natural
 
-  if (typeof _ === 'undefined') {
+  if (typeof tokenizer === 'undefined') {
+    const hasRequire = typeof require !== 'undefined'
     if (hasRequire) {
       tokenizer = require('happynodetokenizer')
       lexicon = require('./data/lexicon.json')
+      natural = require('natural')
     } else throw new Error('prospectimo required happynodetokenizer and ./data/lexicon.json')
   }
 
@@ -61,14 +63,48 @@
     return idxs
   }
 
+  /**
+  * @function getBigrams
+  * @param  {string} str input string
+  * @return {Array} array of bigram strings
+  */
+  const getBigrams = str => {
+    const NGrams = natural.NGrams
+    const bigrams = NGrams.bigrams(str)
+    const result = []
+    const len = bigrams.length
+    let i = 0
+    for (i; i < len; i++) {
+      result.push(bigrams[i].join(' '))
+    }
+    return result
+  }
+
+  /**
+  * @function getTrigrams
+  * @param  {string} str input string
+  * @return {Array} array of trigram strings
+  */
+  const getTrigrams = str => {
+    const NGrams = natural.NGrams
+    const trigrams = NGrams.trigrams(str)
+    const result = []
+    const len = trigrams.length
+    let i = 0
+    for (i; i < len; i++) {
+      result.push(trigrams[i].join(' '))
+    }
+    return result
+  }
+
   const getMatches = (arr) => {
     const matches = {}
-    let cat
-    for (cat in lexicon) {
-      if (!lexicon.hasOwnProperty(cat)) continue
+    let category
+    for (category in lexicon) {
+      if (!lexicon.hasOwnProperty(category)) continue
       let match = []
       let key
-      let data = lexicon[cat]
+      let data = lexicon[category]
       for (key in data) {
         if (!data.hasOwnProperty(key)) continue
         if (arr.indexOf(key) > -1) {
@@ -86,7 +122,7 @@
           }
           match.push(item)
         }
-        matches[cat] = match
+        matches[category] = match
       }
     }
     return matches
@@ -119,12 +155,12 @@
       }
     }
     // add intercept value
-    lex += Number(int)
+    lex += int
     // return final lexical value
-    return Number(lex)
+    return lex
   }
 
-  const getOrientation = (obj, more) => {
+  const getOrientation = obj => {
     const a = [obj.PAST, obj.PRESENT, obj.FUTURE]
     const indexOfMaxValue = a.reduce((iMax, x, i, arr) => x > arr[iMax] ? i : iMax, 0)
 
@@ -139,17 +175,9 @@
 
     let str
     if (a[indexOfMaxValue] < 0) {
-      if (more) {
-        str = `No temporal orientation association detected. ${ori} scored highest at ${a[indexOfMaxValue]}.`
-      } else {
-        str = `No temporal orientation association detected.`
-      }
+      str = `No temporal orientation association detected.`
     } else {
-      if (more) {
-        str = `${ori} ${a[indexOfMaxValue]}`
-      } else {
-        str = ori
-      }
+      str = ori
     }
     return str
   }
@@ -164,22 +192,32 @@
     // default options
     if (opts == null) {
       opts = {
-        'return': 'orientation',
-        'more': false,
-        'encoding': 'binary'
+        'return': 'lex',
+        'encoding': 'binary',
+        'bigrams': true,      // match bigrams?
+        'trigrams': true      // match trigrams?
       }
     }
-    opts.return = opts.return || 'orientation'
-    opts.more = opts.more || false
+    opts.return = opts.return || 'lex'
     opts.encoding = opts.encoding || 'binary'
     // convert our string to tokens
-    const tokens = tokenizer(str)
+    let tokens = tokenizer(str)
     // if no tokens return null
     if (tokens == null) return { PAST: 0, PRESENT: 0, FUTURE: 0 }
-    // get matches from array
-    const matches = getMatches(tokens)
     // get wordcount
     const wordcount = tokens.length
+    // handle bigrams if wanted
+    if (opts.bigrams) {
+      const bigrams = getBigrams(str)
+      tokens = tokens.concat(bigrams)
+    }
+    // handle trigrams if wanted
+    if (opts.trigrams) {
+      const trigrams = getTrigrams(str)
+      tokens = tokens.concat(trigrams)
+    }
+    // get matches from array
+    const matches = getMatches(tokens)
     // calculate lexical useage
     const enc = opts.encoding
     const lex = {}
@@ -190,8 +228,7 @@
     if (opts.return === 'lex') {
       return lex
     } else {
-      const orientation = getOrientation(lex, opts.more)
-      return orientation
+      return getOrientation(lex)
     }
   }
 
