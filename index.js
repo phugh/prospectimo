@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v0.2.0
+ * v0.3.0
  *
  * Analyse the temporal orientation of a string.
  *
@@ -21,16 +21,17 @@
  * const opts = {
  *  'return': 'lex',         // 'orientation' returns a string, 'lex' (default) returns object of lexical values
  *  'encoding': 'binary',    // 'binary' (default), or 'frequency' - type of word encoding to use.
+ *  'threshold': -0.38,      //
  *  'bigrams': true,         // compare against bigrams in the lexicon?
  *  'trigrams': true,        // compare against trigrams in the lexicon?
  * }
- * const text = "A big long string of text...";
- * const orientation = prospectimo(text, opts);
+ * const str = "A big long string of text...";
+ * const orientation = prospectimo(str, opts);
  * console.log(orientation)
  *
  * @param {string} str  input string
  * @param {Object} opts options
- * @return {string|number} temporal orientation or lexical value based on opts
+ * @return {Object|string} temporal orientation or lexical value based on opts
  */
 
 'use strict'
@@ -38,20 +39,19 @@
   const root = this
   const previous = root.prospectimo
 
-  let tokenizer = root.tokenizer
   let lexicon = root.lexicon
   let natural = root.natural
+  let tokenizer = root.tokenizer
 
-  if (typeof tokenizer === 'undefined') {
-    const hasRequire = typeof require !== 'undefined'
-    if (hasRequire) {
-      tokenizer = require('happynodetokenizer')
+  if (typeof lexicon === 'undefined') {
+    if (typeof require !== 'undefined') {
       lexicon = require('./data/lexicon.json')
       natural = require('natural')
-    } else throw new Error('prospectimo required happynodetokenizer and ./data/lexicon.json')
+      tokenizer = require('happynodetokenizer')
+    } else throw new Error('prospectimo requires node modules happynodetokenizer and natural, and ./data/lexicon.json')
   }
 
-  // get multiple indexes helper
+  // Find how many times an element appears in an array
   Array.prototype.indexesOf = function (el) {
     const idxs = []
     let i = this.length - 1
@@ -64,160 +64,153 @@
   }
 
   /**
-  * @function getBigrams
-  * @param  {string} str input string
-  * @return {Array} array of bigram strings
+  * Get all the n-grams of a string and return as an array
+  * @function getNGrams
+  * @param {string} str input string
+  * @param {number} n abitrary n-gram number, e.g. 2 = bigrams
+  * @return {Array} array of ngram strings
   */
-  const getBigrams = str => {
-    const NGrams = natural.NGrams
-    const bigrams = NGrams.bigrams(str)
+  const getNGrams = (str, n) => {
+    // default to bi-grams on null n
+    if (n == null) n = 2
+    if (typeof n !== 'number') n = Number(n)
+    const ngrams = natural.NGrams.ngrams(str, n)
+    const len = ngrams.length
     const result = []
-    const len = bigrams.length
     let i = 0
     for (i; i < len; i++) {
-      result.push(bigrams[i].join(' '))
+      result.push(ngrams[i].join(' '))
     }
     return result
   }
 
   /**
-  * @function getTrigrams
-  * @param  {string} str input string
-  * @return {Array} array of trigram strings
+  * Loop through lexicon and match against array
+  * @function getMatches
+  * @param  {Array} arr token array
+  * @param  {number} threshold  min. weight threshold
+  * @return {Object} object of matches
   */
-  const getTrigrams = str => {
-    const NGrams = natural.NGrams
-    const trigrams = NGrams.trigrams(str)
-    const result = []
-    const len = trigrams.length
-    let i = 0
-    for (i; i < len; i++) {
-      result.push(trigrams[i].join(' '))
-    }
-    return result
-  }
-
-  const getMatches = (arr) => {
+  const getMatches = (arr, threshold) => {
+    // error prevention
+    if (arr == null) return null
+    if (threshold == null) threshold = -999
+    if (typeof threshold !== 'number') threshold = Number(threshold)
+    // loop through categories in lexicon
     const matches = {}
     let category
     for (category in lexicon) {
       if (!lexicon.hasOwnProperty(category)) continue
       let match = []
-      let key
+      let word
       let data = lexicon[category]
-      for (key in data) {
-        if (!data.hasOwnProperty(key)) continue
-        if (arr.indexOf(key) > -1) {
-          let item
-          let weight = data[key]
-          let reps = arr.indexesOf(key).length
-          if (reps > 1) {
-            let words = []
-            for (let i = 0; i < reps; i++) {
-              words.push(key)
-            }
-            item = [words, weight]
-          } else {
-            item = [key, weight]
-          }
-          match.push(item)
+      // loop through words in category
+      for (word in data) {
+        if (!data.hasOwnProperty(word)) continue
+        let weight = data[word]
+        // if word from input matches word from lexicon ...
+        if (arr.indexOf(word) > -1 && weight > threshold) {
+          let count = arr.indexesOf(word).length // number of times the word appears in the input text
+          match.push([word, count, weight])
         }
-        matches[category] = match
       }
+      matches[category] = match
     }
     return matches
   }
 
+  /**
+  * Calculate the total lexical value of matches
+  * @function calcLex
+  * @param {Object} obj matches object
+  * @param {number} wc wordcount
+  * @param {number} int intercept value
+  * @param {string} enc encoding
+  * @return {number} lexical value
+  */
   const calcLex = (obj, wc, int, enc) => {
-    const counts = []
-    const weights = []
-    let key
-    for (key in obj) {
-      if (!obj.hasOwnProperty(key)) continue
-      if (Array.isArray(obj[key][0])) {
-        counts.push(obj[key][0].length)
-      } else {
-        counts.push(1)
-      }
-      weights.push(obj[key][1])
-    }
+    if (obj == null) return null
     let lex = 0
-    let i
-    const len = counts.length
-    const words = Number(wc)
-    for (i = 0; i < len; i++) {
-      let weight = Number(weights[i])
-      if (enc === 'frequency') {
-        let count = Number(counts[i])
-        lex += (count / words) * weight
+    let word
+    for (word in obj) {
+      if (!obj.hasOwnProperty(word)) continue
+      if (enc === 'binary' || enc == null || wc == null) {
+        // weight + weight + weight etc
+        lex += Number(obj[word][2])
       } else {
-        lex += weight
+        // (frequency / wordcount) * weight
+        lex += (Number(obj[word][1]) / Number(wc)) * Number(obj[word][2])
       }
     }
-    // add intercept value
-    lex += int
-    // return final lexical value
+    if (int != null) lex += Number(int)
     return lex
   }
 
+  /**
+  * Converts the lexical values object to an orientation string
+  * @function getOrientation
+  * @param  {Object} obj lexical values object
+  * @return {string} 'Past', 'Present', or 'Future'
+  */
   const getOrientation = obj => {
     const a = [obj.PAST, obj.PRESENT, obj.FUTURE]
     const indexOfMaxValue = a.reduce((iMax, x, i, arr) => x > arr[iMax] ? i : iMax, 0)
 
-    let ori
+    let orientation = `No temporal orientation detected.`
     if (indexOfMaxValue === 0) {
-      ori = 'past'
+      orientation = 'Past'
     } else if (indexOfMaxValue === 1) {
-      ori = 'present'
+      orientation = 'Present'
     } else if (indexOfMaxValue === 2) {
-      ori = 'future'
+      orientation = 'Future'
     }
-
-    let str
-    if (a[indexOfMaxValue] < 0) {
-      str = `No temporal orientation association detected.`
-    } else {
-      str = ori
-    }
-    return str
+    return orientation
   }
 
+  /**
+  * Analyse the temporal orientation of a string
+  * @function prospectimo
+  * @param {string} str  input string
+  * @param {Object} opts options
+  * @return {Object|string} temporal orientation or lexical value based on opts
+  */
   const prospectimo = (str, opts) => {
-    // make sure there is input before proceeding
+    // error prevention
     if (str == null) return null
-    // if str isn't a string, make it into one
     if (typeof str !== 'string') str = str.toString()
-    // trim whitespace and convert to lowercase
-    str = str.toLowerCase().trim()
     // default options
     if (opts == null) {
       opts = {
         'return': 'lex',
         'encoding': 'binary',
-        'bigrams': true,      // match bigrams?
-        'trigrams': true      // match trigrams?
+        'threshold': -999,
+        'bigrams': true,
+        'trigrams': true
       }
     }
     opts.return = opts.return || 'lex'
     opts.encoding = opts.encoding || 'binary'
+    opts.threshold = opts.threshold || -999
+    // convert to lowercase and trim whitespace
+    str = str.toLowerCase().trim()
     // convert our string to tokens
     let tokens = tokenizer(str)
     // if no tokens return null
-    if (tokens == null) return { PAST: 0, PRESENT: 0, FUTURE: 0 }
-    // get wordcount
+    if (tokens == null) return null
+    // get wordcount before we add n-grams
     const wordcount = tokens.length
-    // handle bigrams if wanted
+    // handle bi-grams if wanted
     if (opts.bigrams) {
-      const bigrams = getBigrams(str)
+      const bigrams = getNGrams(str, 2)
       tokens = tokens.concat(bigrams)
     }
-    // handle trigrams if wanted
+    // handle tri-grams if wanted
     if (opts.trigrams) {
-      const trigrams = getTrigrams(str)
+      const trigrams = getNGrams(str, 3)
       tokens = tokens.concat(trigrams)
     }
     // get matches from array
-    const matches = getMatches(tokens)
+    const matches = getMatches(tokens, opts.threshold)
     // calculate lexical useage
     const enc = opts.encoding
     const lex = {}
@@ -225,11 +218,8 @@
     lex.PRESENT = calcLex(matches.PRESENT, wordcount, 0.236749577324, enc)
     lex.FUTURE = calcLex(matches.FUTURE, wordcount, (-0.570547567181), enc)
     // predict and return
-    if (opts.return === 'lex') {
-      return lex
-    } else {
-      return getOrientation(lex)
-    }
+    if (opts.return === 'lex') return lex
+    return getOrientation(lex)
   }
 
   prospectimo.noConflict = function () {
