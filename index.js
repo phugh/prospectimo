@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v0.3.0
+ * v0.4.0
  *
  * Analyse the temporal orientation of a string.
  *
@@ -21,9 +21,7 @@
  * const opts = {
  *  'return': 'lex',         // 'orientation' returns a string, 'lex' (default) returns object of lexical values
  *  'encoding': 'binary',    // 'binary' (default), or 'frequency' - type of word encoding to use.
- *  'threshold': -0.38,      //
- *  'bigrams': true,         // compare against bigrams in the lexicon?
- *  'trigrams': true,        // compare against trigrams in the lexicon?
+ *  'threshold': -0.38      //
  * }
  * const str = "A big long string of text...";
  * const orientation = prospectimo(str, opts);
@@ -31,7 +29,7 @@
  *
  * @param {string} str  input string
  * @param {Object} opts options
- * @return {Object|string} temporal orientation or lexical value based on opts
+ * @return {(Object||string)} temporal orientation or lexical value based on opts
  */
 
 'use strict'
@@ -40,22 +38,28 @@
   const previous = root.prospectimo
 
   let lexicon = root.lexicon
-  let natural = root.natural
+  let simplengrams = root.simplengrams
   let tokenizer = root.tokenizer
 
   if (typeof lexicon === 'undefined') {
     if (typeof require !== 'undefined') {
       lexicon = require('./data/lexicon.json')
-      natural = require('natural')
+      simplengrams = require('simplengrams')
       tokenizer = require('happynodetokenizer')
-    } else throw new Error('prospectimo requires node modules happynodetokenizer and natural, and ./data/lexicon.json')
+    } else throw new Error('prospectimo requires happynodetokenizer and simplengrams, and ./data/lexicon.json')
   }
 
-  // get number of times el appears in an array
-  function indexesOf (arr, el) {
+    /**
+   * Get the indexes of duplicate elements in an array
+   * @function indexesOf
+   * @param  {Array} arr input array
+   * @param  {string} el element to test against
+   * @return {Array} array of indexes
+   */
+  const indexesOf = (arr, el) => {
     const idxs = []
-    let i = arr.length - 1
-    for (i; i >= 0; i--) {
+    let i = arr.length
+    while (i--) {
       if (arr[i] === el) {
         idxs.unshift(i)
       }
@@ -64,22 +68,17 @@
   }
 
   /**
-  * Get all the n-grams of a string and return as an array
-  * @function getNGrams
-  * @param {string} str input string
-  * @param {number} n abitrary n-gram number, e.g. 2 = bigrams
-  * @return {Array} array of ngram strings
-  */
-  const getNGrams = (str, n) => {
-    // default to bi-grams on null n
-    if (n == null) n = 2
-    if (typeof n !== 'number') n = Number(n)
-    const ngrams = natural.NGrams.ngrams(str, n)
-    const len = ngrams.length
-    const result = []
+   * Combines multidimensional array elements into strings
+   * @function arr2string
+   * @param  {Array} arr input array
+   * @return {Array} output array
+   */
+  const arr2string = arr => {
     let i = 0
+    const len = arr.length
+    const result = []
     for (i; i < len; i++) {
-      result.push(ngrams[i].join(' '))
+      result.push(arr[i].join(' '))
     }
     return result
   }
@@ -172,7 +171,7 @@
   * @function prospectimo
   * @param {string} str  input string
   * @param {Object} opts options
-  * @return {Object|string} temporal orientation or lexical value based on opts
+  * @return {(Object||string)} temporal orientation or lexical value based on opts
   */
   const prospectimo = (str, opts) => {
     // error prevention
@@ -183,9 +182,7 @@
       opts = {
         'return': 'lex',
         'encoding': 'binary',
-        'threshold': -999,
-        'bigrams': true,
-        'trigrams': true
+        'threshold': -999
       }
     }
     opts.return = opts.return || 'lex'
@@ -199,15 +196,14 @@
     if (tokens == null) return null
     // get wordcount before we add n-grams
     const wordcount = tokens.length
-    // handle bi-grams if wanted
-    if (opts.bigrams) {
-      const bigrams = getNGrams(str, 2)
-      tokens = tokens.concat(bigrams)
-    }
-    // handle tri-grams if wanted
-    if (opts.trigrams) {
-      const trigrams = getNGrams(str, 3)
-      tokens = tokens.concat(trigrams)
+    // get n-grams
+    const ngrams = []
+    ngrams.push(arr2string(simplengrams(str, 2)))
+    ngrams.push(arr2string(simplengrams(str, 3)))
+    const nLen = ngrams.length
+    let i = 0
+    for (i; i < nLen; i++) {
+      tokens = tokens.concat(ngrams[i])
     }
     // get matches from array
     const matches = getMatches(tokens, opts.threshold)
