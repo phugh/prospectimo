@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v1.0.0-rc.1
+ * v1.0.0
  *
  * Analyse the temporal orientation of a string.
  *
@@ -28,11 +28,11 @@
  *  'encoding': 'binary',
  *  'max': Number.POSITIVE_INFINITY,
  *  'min': Number.NEGATIVE_INFINITY,
- *  'nGrams': true,
+ *  'nGrams': 'true',
  *  'output': 'orientation',
  *  'places': 9,
  *  'sortBy': 'freq',
- *  'wcGrams': false,
+ *  'wcGrams': 'false',
  * };
  * const str = 'A big long string of text...';
  * const orientation = prospectimo(str, opts);
@@ -136,21 +136,21 @@
         'encoding': 'binary',
         'max': Number.POSITIVE_INFINITY,
         'min': Number.NEGATIVE_INFINITY,
-        'nGrams': true,
+        'nGrams': 'true',
         'output': 'orientation',
         'places': 9,
         'sortBy': 'freq',
-        'wcGrams': false,
+        'wcGrams': 'false',
       };
     }
     opts.encoding = opts.encoding || 'binary';
     opts.max = opts.max || Number.POSITIVE_INFINITY;
     opts.min = opts.min || Number.NEGATIVE_INFINITY;
-    opts.nGrams = opts.nGrams || true;
+    opts.nGrams = opts.nGrams || 'true';
     opts.output = opts.output || 'orientation';
     opts.places = opts.places || 9;
     opts.sortBy = opts.sortBy || 'freq';
-    opts.wcGrams = opts.wcGrams || false;
+    opts.wcGrams = opts.wcGrams || 'false';
     const encoding = opts.encoding;
     const output = opts.output;
     const places = opts.places;
@@ -165,13 +165,13 @@
     // get wordcount before we add ngrams
     let wordcount = tokens.length;
     // get n-grams
-    if (opts.nGrams) {
+    if (opts.nGrams.toLowerCase() === 'true') {
       const bigrams = arr2string(simplengrams(str, 2));
       const trigrams = arr2string(simplengrams(str, 3));
       tokens = tokens.concat(bigrams, trigrams);
     }
     // recalculate wordcount if wcGrams is true
-    if (opts.wcGrams) wordcount = tokens.length;
+    if (opts.wcGrams.toLowerCase() === 'true') wordcount = tokens.length;
     // get matches from array
     const matches = getMatches(tokens, lexicon, opts.min, opts.max);
     if (output === 'matches') {
