@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v2.0.0
+ * v3.0.0
  *
  * Analyse the temporal orientation of a string.
  *
@@ -26,10 +26,12 @@
  * const prospectimo = require('prospectimo');
  * const opts = {
  *  'encoding': 'binary',
+ *  'locale': 'US',
+ *  'logs': 3,
  *  'max': Number.POSITIVE_INFINITY,
  *  'min': Number.NEGATIVE_INFINITY,
- *  'nGrams': 'true',
- *  'output': 'orientation',
+ *  'nGrams': [2, 3],
+ *  'output': 'lex',
  *  'places': 9,
  *  'sortBy': 'freq',
  *  'wcGrams': 'false',
@@ -42,62 +44,26 @@
  *
  * @param {string} str  input string
  * @param {Object} opts options
- * @return {(Object|string)}
+ * @return {Object}
  */
 
-'use strict'
-;(function() {
-  const global = this;
-  const previous = global.prospectimo;
+(function() {
+  'use strict';
 
-  let async = global.async;
-  let lexHelpers = global.lexHelpers;
-  let lexicon = global.lexicon;
-  let simplengrams = global.simplengrams;
-  let tokenizer = global.tokenizer;
+  // Lexicon data
+  const lexicon = require('./data/lexicon.json');
 
-  if (typeof lexicon === 'undefined') {
-    if (typeof require !== 'undefined') {
-      async = require('async');
-      lexHelpers = require('lex-helpers');
-      lexicon = require('./data/lexicon.json');
-      simplengrams = require('simplengrams');
-      tokenizer = require('happynodetokenizer');
-    } else throw new Error('prospectimo required modules not found!');
-  }
-
+  // External modules
+  const async = require('async');
+  const trans = require('british_american_translate');
+  const simplengrams = require('simplengrams');
+  const tokenizer = require('happynodetokenizer');
+  const lexHelpers = require('lex-helpers');
   const arr2string = lexHelpers.arr2string;
-  const calcLex = lexHelpers.calcLex;
+  const doLex = lexHelpers.doLex;
+  const doMatches = lexHelpers.doMatches;
   const getMatches = lexHelpers.getMatches;
-  const prepareMatches = lexHelpers.prepareMatches;
   const itemCount = lexHelpers.itemCount;
-
-
-
-  /**
-   * @function doLex
-   * @param  {Object} matches   lexical matches object
-   * @param  {number} places    decimal places limit
-   * @param  {string} encoding  type of lexical encoding
-   * @param  {number} wordcount total word count
-   * @return {Object} lexical values object
-   */
-  const doLex = (matches, places, encoding, wordcount) => {
-    const values = {};
-    const ints = {
-      PAST: (-0.649406376419),
-      PRESENT: 0.236749577324,
-      FUTURE: (-0.570547567181),
-    };
-    async.each(Object.keys(matches), function(cat, callback) {
-      values[cat] = calcLex(matches[cat], ints[cat], places, encoding, 
-          wordcount);
-      callback();
-    }, function(err) {
-      if (err) console.error(err);
-    });
-    return values;
-  };
 
   /**
   * Converts the lexical values object to an orientation string
@@ -126,84 +92,111 @@
    * @function prospectimo
    * @param {string} str    input string
    * @param {Object} opts   options
-   * @return {(Object|string)}
+   * @return {Object}
    */
-  const prospectimo = (str, opts) => {
+  const prospectimo = (str, opts = {}) => {
+    // default options
+    opts.encoding = (typeof opts.encoding !== 'undefined') ? opts.encoding : 'binary';
+    opts.locale = (typeof opts.locale !== 'undefined') ? opts.locale : 'US';
+    opts.logs = (typeof opts.logs !== 'undefined') ? opts.logs : 3;
+    if (opts.suppressLog) opts.logs = 0;
+    opts.max = (typeof opts.max !== 'undefined') ? opts.max : Number.POSITIVE_INFINITY;
+    opts.min = (typeof opts.min !== 'undefined') ? opts.min : Number.NEGATIVE_INFINITY;
+    if (typeof opts.max !== 'number' || typeof opts.min !== 'number') {
+      // try to convert to a number
+      opts.min = Number(opts.min);
+      opts.max = Number(opts.max);
+      // check it worked, or else default to infinity
+      opts.max = (typeof opts.max !== 'number') ? opts.max : Number.POSITIVE_INFINITY;
+      opts.min = (typeof opts.min !== 'number') ? opts.min : Number.NEGATIVE_INFINITY;
+    }
+    opts.nGrams = (typeof opts.nGrams !== 'undefined') ? opts.nGrams : [2, 3];
+    if (!Array.isArray(opts.nGrams)) {
+      if (opts.logs > 1) {
+        console.warn('prospectimo: nGrams option must be an array! ' + 
+            'Defaulting to [2, 3].');
+      }
+      opts.nGrams = [2, 3];
+    }
+    opts.output = (typeof opts.output !== 'undefined') ? opts.output : 'lex';
+    opts.places = (typeof opts.places !== 'undefined') ? opts.places : 9;
+    opts.sortBy = (typeof opts.sortBy !== 'undefined') ? opts.sortBy : 'freq';
+    opts.wcGrams = (typeof opts.wcGrams !== 'undefined') ? opts.wcGrams : false;
+    // cache frequently used options
+    const encoding = opts.encoding;
+    const logs = opts.logs;
+    const nGrams = opts.nGrams;
+    const output = opts.output;
+    const places = opts.places;
+    const sortBy = opts.sortBy;
     // no string return null
     if (!str) {
-      console.error('prospectimo: no input found! Returning null.');
+      if (logs > 1) console.warn('prospectimo: no input found! Returning null.');
       return null;
     }
     // if str isn't a string, make it into one
     if (typeof str !== 'string') str = str.toString();
     // trim whitespace and convert to lowercase
     str = str.toLowerCase().trim();
-    // options defaults
-    if (!opts || typeof opts !== 'object') {
-      opts = {
-        'encoding': 'binary',
-        'max': Number.POSITIVE_INFINITY,
-        'min': Number.NEGATIVE_INFINITY,
-        'nGrams': 'true',
-        'output': 'orientation',
-        'places': 9,
-        'sortBy': 'freq',
-        'wcGrams': 'false',
-      };
-    }
-    opts.encoding = opts.encoding || 'binary';
-    opts.max = opts.max || Number.POSITIVE_INFINITY;
-    opts.min = opts.min || Number.NEGATIVE_INFINITY;
-    opts.nGrams = opts.nGrams || 'true';
-    opts.output = opts.output || 'orientation';
-    opts.places = opts.places || 9;
-    opts.sortBy = opts.sortBy || 'freq';
-    opts.wcGrams = opts.wcGrams || 'false';
-    const encoding = opts.encoding;
-    const output = opts.output;
-    const places = opts.places;
-    const sortBy = opts.sortBy;
+    // translalte US English to UK English if selected
+    if (opts.locale === 'GB') str = trans.uk2us(str);
     // convert our string to tokens
-    let tokens = tokenizer(str);
+    let tokens = tokenizer(str, {logs: opts.logs});
     // if there are no tokens return null
     if (!tokens) {
-      console.warn('prospectimo: no tokens found. Returned null.');
+      if (logs > 1) console.warn('prospectimo: no tokens found. Returned null.');
       return null;
     }
     // get wordcount before we add ngrams
     let wordcount = tokens.length;
     // get n-grams
-    if (opts.nGrams.toLowerCase() === 'true') {
-      const bigrams = arr2string(simplengrams(str, 2));
-      const trigrams = arr2string(simplengrams(str, 3));
-      tokens = tokens.concat(bigrams, trigrams);
+    if (nGrams) {
+      async.each(nGrams, function(n, callback) {
+        if (wordcount < n) {
+          callback(`prospectimo: wordcount (${wordcount}) less than n-gram value (${n}). Ignoring.`);
+        } else {
+          tokens = [...arr2string(simplengrams(str, n, {logs: logs})), ...tokens];
+          callback();
+        }
+      }, function(err) {
+        if (err && logs > 0) console.error('prospectimo: nGram error: ', err);        
+      });
     }
     // recalculate wordcount if wcGrams is true
-    if (opts.wcGrams.toLowerCase() === 'true') wordcount = tokens.length;
+    if (opts.wcGrams) wordcount = tokens.length;    
     // get matches from array
-    const matches = getMatches(tokens, lexicon, opts.min, opts.max);
-    if (output === 'matches') {
+    const matches = getMatches(itemCount(tokens), lexicon, opts.min, opts.max);
+    // define intercept values
+    const ints = {
+      PAST: (-0.649406376419),
+      PRESENT: 0.236749577324,
+      FUTURE: (-0.570547567181),
+    };
+    // returns
+    if (output.match(/matches/gi)) {
       return doMatches(matches, sortBy, wordcount, places, encoding);
-    } else if (output === 'full') {
-      const full = {
-        matches: doMatches(matches, sortBy, wordcount, places, encoding),
-        values: doValues(matches, places, encoding, wordcount),
-      };
-      return full;
-    } else if (output === 'lex') {
-      return doValues(matches, places, encoding, wordcount);
+    } else if (output.match(/full/gi)) {
+      async.parallel({
+        matches: function(callback) {
+          callback(null, doMatches(matches, sortBy, wordcount, places, encoding));
+        },
+        values: function(callback) {
+          callback(null, doLex(matches, ints, places, encoding, wordcount));
+        },
+      }, function(err, results) {
+        if (err && logs > 0) console.error(err);
+        return results;
+      });
+    } else if (output.match(/orientation/gi)) {
+      return getOrientation(doLex(matches, ints, places, encoding, wordcount));
     } else {
-      if (output !== 'orientation') {
+      if (!output.match(/lex/gi) && logs > 1) {
         console.warn('prospectimo: output option ("' + output +
-            '") is invalid, defaulting to "orientation".');
+            '") is invalid, defaulting to "lex".');
       }
-      return getOrientation(doValues(matches, places, encoding, wordcount));
+      // default to lexical values
+      return doLex(matches, ints, places, encoding, wordcount);
     }
-  };
-
-  prospectimo.noConflict = function() {
-    global.prospectimo = previous;
-    return prospectimo;
   };
 
   if (typeof exports !== 'undefined') {
@@ -214,4 +207,4 @@
   } else {
     global.prospectimo = prospectimo;
   }
-}).call(this);
+})();

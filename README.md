@@ -7,17 +7,29 @@ Get the temporal orientation (time perspective) of a string.
 const prospectimo = require('prospectimo');
 const opts = {
   'encoding': 'binary',
+  'locale': 'US',
+  'logs': 3,
   'max': Number.POSITIVE_INFINITY,
   'min': Number.NEGATIVE_INFINITY,
   'nGrams': 'true',
-  'output': 'orientation',
+  'output': 'lex',
   'places': 9,
   'sortBy': 'freq',
   'wcGrams': 'false',
 };
 const str = 'A big long string of text...';
-const orientation = prospectimo(str, opts);
-console.log(orientation);
+const prospection = prospectimo(str, opts);
+console.log(prospection);
+```
+
+## Default Ouput
+By default, prospectimo will output an object with PAST, PRESENT, and FUTURE keys, and lexical values:
+```javascript
+{
+  PAST: 1.56172642,
+  PRESENT: -1.341234123,
+  FUTURE: 0.123412234
+}
 ```
 
 ## The Options Object
@@ -26,7 +38,7 @@ The options object is optional and provides a number of controls to allow you to
 
 ### 'encoding'
 
-**String - valid options: 'freq' (default), 'binary'**
+**String - valid options: 'freq' (default), 'binary', or 'percent'**
 
 N.B - You probably don't want to change this, ever.
 
@@ -36,13 +48,15 @@ Binary is simply the addition of lexical weights, i.e. word1 + word2 + word3.
 
 Frequency encoding takes the overall wordcount and word frequency into account, i.e. (word frequency / word count) * weight.
 
+Percent returns the percentage of token matches in each category as a decimal, i.e. 0.48 - 48%.
+
 ### 'output'
 
-**String - valid options: 'orientation' (default), 'matches', 'lex', or 'full'**
+**String - valid options: 'lex' (default), 'matches', 'orientation', or 'full'**
 
-'orientation' (default) returns the predicted temporal orientation as a string, i.e. "Past", "Present", "Future", or "Unknown".
+'lex' (default) returns an object with the lexical value for past, present and future orientations.
 
-'lex' returns an object with the lexical value for past, present and future orientations.
+'orientation'  returns the predicted temporal orientation as a string, i.e. "Past", "Present", "Future", or "Unknown".
 
 'matches' returns an array of matched words along with the number of times each word appears, its weight, and its final lexical value. See the output example below for an example.
 
@@ -50,11 +64,37 @@ Frequency encoding takes the overall wordcount and word frequency into account, 
 
 ### 'nGrams'
 
-**String - valid options: 'true' (default) or 'false'**
+**Array - valid options: [ number, number, ...]**
 
 n-Grams are contiguous pieces of text, bi-grams being chunks of 2, tri-grams being chunks of 3, etc.
 
-Use the nGrams option to include (true) or exclude (false) n-grams. For accuracy it is recommended that n-grams are included, however including n-grams for very long strings can detrement performance.
+Use the nGrams option to include n-gram chunks. For example if you want to include both bi-grams and tri-grams, use like so:
+
+```javascript
+{
+  nGrams: [2, 3]
+}
+```
+
+If you only want to include tri-grams:
+
+```javascript
+{
+  nGrams: [3]
+}
+```
+
+### 'locale'
+**String - valid options: 'US' (default), 'GB'**
+The lexicon data is in American English (US), if the string(s) you want to analyse are in British English set the locale option to 'GB'.
+
+### 'logs'
+**Number - valid options: 0, 1, 2, 3 (default)**
+Used to control console.log, console.warn, and console.error outputs.
+* 0 = suppress all logs
+* 1 = print errors only
+* 2 = print errors and warnings
+* 3 = print all console logs
 
 ### 'wcGrams'
 
@@ -106,7 +146,7 @@ The largest value in the lexicon is 1.15807005. Therefore a threshold of 1.16 wi
 ### Lexicon
 Using the prospection lexicon data from [WWBP](http://www.wwbp.org/lexica.html) under the [Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported](http://creativecommons.org/licenses/by-nc-sa/3.0/).
 
-## Licence
-(C) 2017 [P. Hughes](https://www.phugh.es).
+## License
+(C) 2017-18 [P. Hughes](https://www.phugh.es). All rights reserved.
 
-[Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported](http://creativecommons.org/licenses/by-nc-sa/3.0/).
+Shared under the [Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported](http://creativecommons.org/licenses/by-nc-sa/3.0/) license.
