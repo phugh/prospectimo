@@ -1,6 +1,6 @@
 /**
  * prospectimo
- * v1.0.0
+ * v2.0.0
  *
  * Analyse the temporal orientation of a string.
  *
@@ -50,6 +50,7 @@
   const global = this;
   const previous = global.prospectimo;
 
+  let async = global.async;
   let lexHelpers = global.lexHelpers;
   let lexicon = global.lexicon;
   let simplengrams = global.simplengrams;
@@ -57,6 +58,7 @@
 
   if (typeof lexicon === 'undefined') {
     if (typeof require !== 'undefined') {
+      async = require('async');
       lexHelpers = require('lex-helpers');
       lexicon = require('./data/lexicon.json');
       simplengrams = require('simplengrams');
@@ -68,26 +70,32 @@
   const calcLex = lexHelpers.calcLex;
   const getMatches = lexHelpers.getMatches;
   const prepareMatches = lexHelpers.prepareMatches;
+  const itemCount = lexHelpers.itemCount;
 
-  const doMatches = (matches, sortBy, wordcount, places, encoding) => {
-    const match = {};
-    match.PAST = prepareMatches(matches.PAST, sortBy, wordcount, places,
-        encoding);
-    match.PRESENT = prepareMatches(matches.PRESENT, sortBy, wordcount, places,
-        encoding);
-    match.FUTURE = prepareMatches(matches.FUTURE, sortBy, wordcount, places,
-        encoding);
-    return match;
-  };
 
-  const doValues = (matches, places, encoding, wordcount) => {
+
+  /**
+   * @function doLex
+   * @param  {Object} matches   lexical matches object
+   * @param  {number} places    decimal places limit
+   * @param  {string} encoding  type of lexical encoding
+   * @param  {number} wordcount total word count
+   * @return {Object} lexical values object
+   */
+  const doLex = (matches, places, encoding, wordcount) => {
     const values = {};
-    values.PAST = calcLex(matches.PAST, (-0.649406376419), places, encoding,
-        wordcount);
-    values.PRESENT = calcLex(matches.PRESENT, 0.236749577324, places, encoding,
-        wordcount);
-    values.FUTURE = calcLex(matches.FUTURE, (-0.570547567181), places, encoding,
-        wordcount);
+    const ints = {
+      PAST: (-0.649406376419),
+      PRESENT: 0.236749577324,
+      FUTURE: (-0.570547567181),
+    };
+    async.each(Object.keys(matches), function(cat, callback) {
+      values[cat] = calcLex(matches[cat], ints[cat], places, encoding, 
+          wordcount);
+      callback();
+    }, function(err) {
+      if (err) console.error(err);
+    });
     return values;
   };
 
